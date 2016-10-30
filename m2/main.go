@@ -160,10 +160,11 @@ func (shifter *circularShifter) chars(line, word int) int {
 // Module 4: Alphabetizer
 
 type alphabetizer struct {
-	perm []int
+	storage lineHolder
+	perm    []int
 }
 
-func alphabetize(lines lineHolder) *alphabetizer {
+func newAlphabetizer(lines lineHolder) lineHolder {
 	perm := make([]int, lines.lines())
 	for i := range perm {
 		perm[i] = i + 1
@@ -189,13 +190,23 @@ func alphabetize(lines lineHolder) *alphabetizer {
 		quickSort(pivot+1, right)
 	}
 	quickSort(0, len(perm))
-	return &alphabetizer{perm}
+	return &alphabetizer{lines, perm}
 }
 
-// ith returns the index of the circular shift that comes i-th in alphabetical
-// order.
-func (alpha *alphabetizer) ith(i int) int {
-	return alpha.perm[i-1]
+func (alpha *alphabetizer) char(line, word, char int) byte {
+	return alpha.storage.char(alpha.perm[line-1], word, char)
+}
+
+func (alpha *alphabetizer) lines() int {
+	return alpha.storage.lines()
+}
+
+func (alpha *alphabetizer) words(line int) int {
+	return alpha.storage.words(alpha.perm[line-1])
+}
+
+func (alpha *alphabetizer) chars(line, word int) int {
+	return alpha.storage.chars(alpha.perm[line-1], word)
 }
 
 func normalizeChar(char byte) byte {
@@ -255,16 +266,18 @@ func linesLess(lines lineHolder, line1, line2 int) bool {
 
 // Module 5: Output
 
-func output(w io.Writer, lines lineHolder, line int) {
-	for word := 1; word <= lines.words(line); word++ {
-		for char := 1; char <= lines.chars(line, word); char++ {
-			w.Write([]byte{lines.char(line, word, char)})
+func output(w io.Writer, lines lineHolder) {
+	for line := 1; line <= lines.lines(); line++ {
+		for word := 1; word <= lines.words(line); word++ {
+			for char := 1; char <= lines.chars(line, word); char++ {
+				w.Write([]byte{lines.char(line, word, char)})
+			}
+			if word < lines.words(line) {
+				w.Write([]byte{' '})
+			}
 		}
-		if word < lines.words(line) {
-			w.Write([]byte{' '})
-		}
+		w.Write([]byte{'\n'})
 	}
-	w.Write([]byte{'\n'})
 }
 
 // Module 6: Master Control
@@ -279,9 +292,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error in input(%v): %v", filename, err)
 	}
-	shifter := newCircularShifter(storage)
-	alpha := alphabetize(shifter)
-	for line := 1; line <= shifter.lines(); line++ {
-		output(os.Stdout, shifter, alpha.ith(line))
-	}
+	shifted := newCircularShifter(storage)
+	alphabetized := newAlphabetizer(shifted)
+	output(os.Stdout, alphabetized)
 }
