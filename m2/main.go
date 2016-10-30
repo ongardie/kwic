@@ -108,25 +108,53 @@ func input(filename string, storage *lineStorage) error {
 
 // Module 3: Circular Shifter
 
-func newCircularShifter(storage *lineStorage) lineHolder {
-	shifted := &lineStorage{}
-	line := 1
-	for inputLine := 1; inputLine <= storage.lines(); inputLine++ {
-		words := storage.words(inputLine)
-		for inputStartWord := 1; inputStartWord <= words; inputStartWord++ {
-			for word := 1; word <= words; word++ {
-				inputWord := inputStartWord + word - 1
-				if inputWord > words {
-					inputWord -= words
-				}
-				for char := 1; char <= storage.chars(inputLine, inputWord); char++ {
-					shifted.setWord(line, word, char, storage.char(inputLine, inputWord, char))
-				}
-			}
-			line++
+type circularShifter struct {
+	storage lineHolder
+	shifts  []shift
+}
+
+type shift struct {
+	line      int
+	startWord int
+}
+
+func newCircularShifter(storage lineHolder) lineHolder {
+	shifter := &circularShifter{storage: storage}
+	for line := 1; line <= storage.lines(); line++ {
+		for word := 1; word <= storage.words(line); word++ {
+			shifter.shifts = append(shifter.shifts, shift{line, word})
 		}
 	}
-	return shifted
+	return shifter
+}
+
+func (shifter *circularShifter) char(line, word, char int) byte {
+	shift := shifter.shifts[line-1]
+	word += shift.startWord
+	words := shifter.storage.words(shift.line)
+	if word > words {
+		word -= words
+	}
+	return shifter.storage.char(shift.line, word, char)
+}
+
+func (shifter *circularShifter) lines() int {
+	return len(shifter.shifts)
+}
+
+func (shifter *circularShifter) words(line int) int {
+	shift := shifter.shifts[line-1]
+	return shifter.storage.words(shift.line)
+}
+
+func (shifter *circularShifter) chars(line, word int) int {
+	shift := shifter.shifts[line-1]
+	word += shift.startWord
+	words := shifter.storage.words(shift.line)
+	if word > words {
+		word -= words
+	}
+	return shifter.storage.chars(shift.line, word)
 }
 
 // Module 4: Alphabetizer
